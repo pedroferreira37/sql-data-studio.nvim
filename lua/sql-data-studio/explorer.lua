@@ -11,6 +11,7 @@ local move_tbl = {
 }
 
 M.View = {
+	side = "left",
 	tabpages = {},
 	winopts = {
 		relativenumber = false,
@@ -50,11 +51,6 @@ local function setup_tabpage(tabpage)
 	M.View.tabpages[tabpage] = vim.tbl_extend("force", M.View.tabpages[tabpage] or tabinitial, { winnr = winnr })
 end
 
--- local function save_tab_state(tabnr)
--- 	local tabpage = tabnr or vim.api.nvim_get_current_tabpage()
--- 	M.View.cursors[tabpage] = vim.api.nvim_win_get_cursor(M.get_winnr(tabpage))
--- end
---
 local function set_win_options_and_buf()
 	pcall(vim.cmd, "buffer " .. M.get_bufnr())
 	for k, v in pairs(M.View.winopts) do
@@ -98,10 +94,8 @@ function M.get_winnr(tabpage)
 end
 
 function M.reposition_window()
-	local move_to = move_tbl["left"]
+	local move_to = move_tbl[M.View.side]
 	vim.api.nvim_command("wincmd " .. move_to)
-	vim.api.nvim_win_set_width(M.get_winnr(), DEFAULT_MIN_WIDTH)
-	-- M.resize()
 end
 
 local function create_buff(bufnr)
@@ -109,23 +103,38 @@ local function create_buff(bufnr)
 
 	local tab = vim.api.nvim_get_current_tabpage()
 	BUFNR_PER_TAB[tab] = bufnr or vim.api.nvim_create_buf(false, false)
-	vim.api.nvim_buf_set_lines(M.get_bufnr(), 0, -1, true, { "I dont know what I'm doing, really" })
-	vim.api.nvim_buf_set_name(M.get_bufnr(), "SQLTree" .. tab)
+	vim.api.nvim_buf_set_name(M.get_bufnr(), "SQLTree_" .. tab)
 	for k, v in pairs(BUFFER_OPTIONS) do
 		vim.bo[M.get_bufnr()][k] = v
 	end
 end
 
-function M.open_win()
+local function open_win()
 	vim.api.nvim_command("vsp")
 	M.reposition_window()
-	create_buff()
 	setup_tabpage(vim.api.nvim_get_current_tabpage())
 	set_win_options_and_buf()
 end
 
+-- local function set_current_win()
+-- 	local current_tab = vim.api.nvim_get_current_tabpage()
+-- 	M.View.tabpages[current_tab].winnr = vim.api.nvim_get_current_win()
+-- end
+
 function M.get_bufnr()
 	return BUFNR_PER_TAB[vim.api.nvim_get_current_tabpage()]
 end
+
+function M.resize()
+	vim.api.nvim_win_set_width(M.get_winnr(), DEFAULT_MIN_WIDTH)
+end
+
+function M.open()
+	create_buff()
+	open_win()
+	M.resize()
+end
+
+M.open()
 
 return M
