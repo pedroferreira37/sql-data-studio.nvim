@@ -1,0 +1,14 @@
+Sql-plugin-for-nvim
+
+[x] - Create a split window and customize
+[ ] - Fill buf with pc names( query into db getting the list
+and just replace the buffer )
+[ ] - Get cursor line value and open in a new split ( 
+ have to define the buffer tables and again
+ query in db passing the bufnr value 
+)
+[ ] - Build the SQL  lsp and the parser to integratae (
+ probably forked the SQL parser from some repo
+ for the lsp, nvim defines the client side,
+ just need to create the backend. C or Go
+)  
