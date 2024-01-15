@@ -1,7 +1,6 @@
 local M = {}
 
 local DEFAULT_MIN_WIDTH = 30
-local DEFAULT_MAX_HEIGHT = -1
 
 local BUFNR_PER_TAB = {}
 
@@ -13,6 +12,7 @@ local move_tbl = {
 M.View = {
 	side = "left",
 	tabpages = {},
+	cursors = {},
 	winopts = {
 		relativenumber = false,
 		number = false,
@@ -116,11 +116,6 @@ local function open_win()
 	set_win_options_and_buf()
 end
 
--- local function set_current_win()
--- 	local current_tab = vim.api.nvim_get_current_tabpage()
--- 	M.View.tabpages[current_tab].winnr = vim.api.nvim_get_current_win()
--- end
-
 function M.get_bufnr()
 	return BUFNR_PER_TAB[vim.api.nvim_get_current_tabpage()]
 end
@@ -135,6 +130,87 @@ function M.open()
 	M.resize()
 end
 
-M.open()
+local function save_tab_state(tabnr)
+	local tabpage = tabnr or vim.api.nvim_get_current_tabpage()
+	M.View.cursors[tabpage] = vim.api.nvim_win_get_cursor(M.get_winnr(tabpage))
+end
+
+function M.is_visible(opts)
+	if opts and opts.tabpage then
+		if M.View.tabpages[opts.tabpage] == nil then
+			return false
+		end
+		local winnr = M.View.tabpages[opts.tabpage].winnr
+		return winnr and vim.api.nvim_win_is_valid(winnr)
+	end
+end
+
+local function is_buf_displayed(buf)
+	return vim.api.nvim_buf_is_valid(buf) and vim.fn.buflisted(buf) == 1
+end
+
+local function get_alt_or_next_buf()
+	local alt_buf = vim.fn.bufnr("#")
+	if is_buf_displayed(alt_buf) then
+		return alt_buf
+	end
+
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if is_buf_displayed(buf) then
+			return buf
+		end
+	end
+end
+
+local function switch_buf_if_last_buf()
+	if #vim.api.nvim_list_wins() == 1 then
+		local buf = get_alt_or_next_buf()
+		if buf then
+			vim.cmd("sb" .. buf)
+		else
+			vim.cmd("new")
+		end
+	end
+
+	local function close(tabpage)
+		if not M.is_visible({ tabpage = tabpage }) then
+			return
+		end
+		save_tab_state(tabpage)
+		switch_buf_if_last_buf()
+		local tree_win = M.get_winnr(tabpage)
+		local current_win = vim.api.nvim_get_current_win()
+		for _, win in pairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
+			if vim.api.nvim_win_get_config(win).relative == "" then
+				local prev_win = vim.fn.winnr("#") -- this tab only
+				if tree_win == current_win and prev_win > 0 then
+					vim.api.nvim_set_current_win(vim.fn.win_getid(prev_win))
+				end
+				if vim.api.nvim_win_is_valid(tree_win) then
+					vim.api.nvim_win_close(tree_win, true)
+				end
+				return
+			end
+		end
+	end
+
+	function M.close_this_tab_only()
+		close(vim.api.nvim_get_current_tabpage())
+	end
+
+	function M.close_all_tabs()
+		for tabpage, _ in pairs(M.View.tabpages) do
+			close(tabpage)
+		end
+	end
+end
+
+function M.close()
+	if M.View.tab.sync.close then
+		M.close_all_tabs()
+	else
+		M.close_this_tab_only()
+	end
+end
 
 return M

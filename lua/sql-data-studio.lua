@@ -1,4 +1,4 @@
-local database = require("sql-data-studio.database")
 local explorer = require("sql-data-studio.explorer")
 
-explorer.open_win()
+explorer.close_this_tab_only()
+-- explorer.open()
