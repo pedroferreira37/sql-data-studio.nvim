@@ -13,6 +13,12 @@ M.View = {
 	side = "left",
 	tabpages = {},
 	cursors = {},
+	tab = {
+		sync = {
+			close = false,
+		},
+	},
+
 	winopts = {
 		relativenumber = false,
 		number = false,
@@ -104,6 +110,7 @@ local function create_buff(bufnr)
 	local tab = vim.api.nvim_get_current_tabpage()
 	BUFNR_PER_TAB[tab] = bufnr or vim.api.nvim_create_buf(false, false)
 	vim.api.nvim_buf_set_name(M.get_bufnr(), "SQLTree_" .. tab)
+
 	for k, v in pairs(BUFFER_OPTIONS) do
 		vim.bo[M.get_bufnr()][k] = v
 	end
@@ -125,6 +132,10 @@ function M.resize()
 end
 
 function M.open()
+	if M.is_visible() then
+		return
+	end
+
 	create_buff()
 	open_win()
 	M.resize()
@@ -171,37 +182,39 @@ local function switch_buf_if_last_buf()
 			vim.cmd("new")
 		end
 	end
+end
 
-	local function close(tabpage)
-		if not M.is_visible({ tabpage = tabpage }) then
+local function close(tabpage)
+	if not M.is_visible({ tabpage = tabpage }) then
+		return
+	end
+
+	save_tab_state(tabpage)
+	switch_buf_if_last_buf()
+
+	local tree_win = M.get_winnr(tabpage)
+	local current_win = vim.api.nvim_get_current_win()
+	for _, win in pairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
+		if vim.api.nvim_win_get_config(win).relative == "" then
+			local prev_win = vim.fn.winnr("#") -- this tab only
+			if tree_win == current_win and prev_win > 0 then
+				vim.api.nvim_set_current_win(vim.fn.win_getid(prev_win))
+			end
+			if vim.api.nvim_win_is_valid(tree_win) then
+				vim.api.nvim_win_close(tree_win, true)
+			end
 			return
 		end
-		save_tab_state(tabpage)
-		switch_buf_if_last_buf()
-		local tree_win = M.get_winnr(tabpage)
-		local current_win = vim.api.nvim_get_current_win()
-		for _, win in pairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
-			if vim.api.nvim_win_get_config(win).relative == "" then
-				local prev_win = vim.fn.winnr("#") -- this tab only
-				if tree_win == current_win and prev_win > 0 then
-					vim.api.nvim_set_current_win(vim.fn.win_getid(prev_win))
-				end
-				if vim.api.nvim_win_is_valid(tree_win) then
-					vim.api.nvim_win_close(tree_win, true)
-				end
-				return
-			end
-		end
 	end
+end
 
-	function M.close_this_tab_only()
-		close(vim.api.nvim_get_current_tabpage())
-	end
+function M.close_this_tab_only()
+	close(vim.api.nvim_get_current_tabpage())
+end
 
-	function M.close_all_tabs()
-		for tabpage, _ in pairs(M.View.tabpages) do
-			close(tabpage)
-		end
+function M.close_all_tabs()
+	for tabpage, _ in pairs(M.View.tabpages) do
+		close(tabpage)
 	end
 end
 
@@ -210,6 +223,14 @@ function M.close()
 		M.close_all_tabs()
 	else
 		M.close_this_tab_only()
+	end
+end
+
+function M.toggle()
+	if M.is_visible() then
+		M.close()
+	else
+		M.open()
 	end
 end
 
