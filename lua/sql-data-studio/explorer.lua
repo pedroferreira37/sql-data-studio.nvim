@@ -104,6 +104,11 @@ function M.reposition_window()
 	vim.api.nvim_command("wincmd " .. move_to)
 end
 
+function M.restore_tab_state()
+	local tabpage = vim.api.nvim_get_current_tabpage()
+	M.set_cursor(M.View.cursors[tabpage])
+end
+
 local function create_buff(bufnr)
 	wipe_rogue_buffer()
 
@@ -130,6 +135,8 @@ end
 function M.resize()
 	vim.api.nvim_win_set_width(M.get_winnr(), DEFAULT_MIN_WIDTH)
 end
+
+-- the tree is not closing correctly causing it to open in a wrong way
 
 function M.open()
 	if M.is_visible() then
@@ -232,6 +239,7 @@ function M.toggle()
 	else
 		M.open()
 	end
+	M.restore_tab_state()
 end
 
 return M
